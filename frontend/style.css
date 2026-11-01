@@ -200,17 +200,19 @@ html, body {
 
 .workspace-grid {
   display: grid;
-  grid-template-columns: 330px minmax(0, 1fr);
+  grid-template-columns: minmax(250px, 0.3fr) minmax(0, 0.7fr);
   gap: 16px;
   padding: 16px 24px;
   max-width: 1780px;
   margin: 0 auto;
+  align-items: start;
 }
 
 .sidebar-column {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  min-width: 0;
 }
 
 .main-column {
@@ -218,6 +220,17 @@ html, body {
   flex-direction: column;
   gap: 14px;
   min-width: 0;
+}
+
+.workspace-grid > *,
+.telemetry-grid > *,
+.hash-matrix > *,
+.input-grid > * {
+  min-width: 0;
+}
+
+.history-panel {
+  grid-column: 1 / -1;
 }
 
 /* ==========================================================================
@@ -231,6 +244,7 @@ html, body {
   box-shadow: var(--shadow-subtle);
   padding: 16px;
   position: relative;
+  min-width: 0;
 }
 
 .panel-header {
@@ -819,6 +833,19 @@ select:focus {
   opacity: 1;
 }
 
+.signal-packet.completed {
+  animation: none;
+  opacity: 1;
+}
+
+.data-signal.completed {
+  left: calc(100% - 34px);
+}
+
+.ack-signal.completed {
+  left: 0;
+}
+
 .data-signal {
   background-color: var(--accent-burnt);
   color: #FFFFFF;
@@ -869,8 +896,13 @@ select:focus {
 
 .split-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 0.3fr) minmax(0, 0.7fr);
   gap: 14px;
+  min-width: 0;
+}
+
+.split-grid > .panel {
+  min-width: 0;
 }
 
 /* Section 06: Event Stream */
@@ -908,6 +940,7 @@ select:focus {
   border-left: 3px solid var(--border-hairline);
   border-radius: var(--radius-sm);
   font-size: 11px;
+  min-width: 0;
 }
 
 .event-row.info { border-left-color: var(--text-secondary); }
@@ -938,6 +971,7 @@ select:focus {
 .event-detail {
   color: var(--text-primary);
   font-size: 10.5px;
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -958,8 +992,10 @@ select:focus {
 
 .packet-scroll {
   display: flex;
+  flex-wrap: wrap;
   gap: 5px;
-  overflow-x: auto;
+  min-width: 0;
+  overflow: hidden;
   padding-bottom: 5px;
 }
 
@@ -973,7 +1009,8 @@ select:focus {
   font-weight: 700;
   color: var(--text-primary);
   cursor: pointer;
-  white-space: nowrap;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   transition: all 0.15s ease;
 }
 
@@ -1237,6 +1274,10 @@ select:focus {
 
 /* Laptop / Intermediate Screen (1024px to 1280px) */
 @media (max-width: 1280px) {
+  .workspace-grid {
+    grid-template-columns: minmax(230px, 0.28fr) minmax(0, 0.72fr);
+  }
+
   .telemetry-grid {
     grid-template-columns: repeat(3, 1fr);
   }
@@ -1245,11 +1286,7 @@ select:focus {
 /* Tablet / Medium Screen (768px to 1024px) */
 @media (max-width: 1024px) {
   .workspace-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .split-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(210px, 0.28fr) minmax(0, 0.72fr);
   }
 
   .hash-matrix {
@@ -1292,6 +1329,10 @@ select:focus {
   }
 
   .input-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .split-grid {
     grid-template-columns: 1fr;
   }
 

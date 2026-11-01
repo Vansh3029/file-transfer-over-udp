@@ -348,7 +348,9 @@ function updateDashboard(payload) {
   if ($("receiverHash")) $("receiverHash").textContent = state.receiver_hash || "-";
 
   // Receiver Connection Status Badge
-  const receiverStatus = state.receiver_status || "Not Connected";
+  const receiverStatus = state.receiver_status === "Transfer Completed"
+    ? "Receiver Ready"
+    : (state.receiver_status || "Not Connected");
   if (receiverStatusBadge) {
     receiverStatusBadge.textContent = receiverStatus;
     const statusMap = {
@@ -356,7 +358,6 @@ function updateDashboard(payload) {
       "Waiting for Receiver": "waiting-for-receiver",
       "Receiver Ready": "receiver-ready",
       "Transfer in Progress": "transfer-in-progress",
-      "Transfer Completed": "transfer-completed",
       "Connection Failed": "connection-failed"
     };
     receiverStatusBadge.className = `status-badge ${statusMap[receiverStatus] || "not-connected"}`;
@@ -369,9 +370,18 @@ function updateDashboard(payload) {
     if (isTransferring) {
       packetMarker.classList.add("active");
       ackMarker.classList.add("active");
+      packetMarker.classList.remove("completed");
+      ackMarker.classList.remove("completed");
+    } else if (state.status === "complete") {
+      packetMarker.classList.remove("active");
+      ackMarker.classList.remove("active");
+      packetMarker.classList.add("completed");
+      ackMarker.classList.add("completed");
     } else {
       packetMarker.classList.remove("active");
       ackMarker.classList.remove("active");
+      packetMarker.classList.remove("completed");
+      ackMarker.classList.remove("completed");
     }
   }
 
@@ -398,8 +408,9 @@ function updateDashboard(payload) {
   }
 
   // Update Metadata If Available From Backend
-  const hasFile = Boolean(state.filename || (fileInput && fileInput.files && fileInput.files[0]));
-  if (state.filename) {
+  const selectedFile = fileInput && fileInput.files && fileInput.files[0];
+  const hasFile = Boolean(state.filename || selectedFile);
+  if (state.filename && (!selectedFile || isTransferring)) {
     if ($("fileName")) $("fileName").textContent = state.filename;
     if ($("fileSize")) $("fileSize").textContent = formatBytes(state.file_size);
     if ($("fileType")) $("fileType").textContent = state.file_type || "application/octet-stream";

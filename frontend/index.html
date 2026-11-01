@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>DATAGRAM — Reliable File Transfer over UDP</title>
+    <title>Reliable File Transfer over UDP</title>
     <link rel="stylesheet" href="/style.css" />
   </head>
   <body>
@@ -12,25 +12,12 @@
       <div class="header-brand">
         <div class="brand-topline">
           <span class="system-tag">NETWORK PROTOCOL LAB</span>
-          <span class="version-tag">v1.0</span>
-          <span class="protocol-tag">UDP-SR ARQ</span>
         </div>
-        <h1 class="brand-title">DATAGRAM</h1>
+        <h1 class="brand-title">RELIABLE FILE TRANSFER</h1>
         <p class="brand-subtitle">RELIABLE FILE TRANSFER SYSTEM &bull; Reliable File Transfer over UDP</p>
       </div>
 
       <div class="header-instrument-bar">
-        <div class="instrument-cell">
-          <span class="cell-label">SYSTEM STATE</span>
-          <div class="cell-value state-value">
-            <span class="status-indicator" id="statusLed"></span>
-            <span id="connectionState">Ready</span>
-          </div>
-        </div>
-        <div class="instrument-cell">
-          <span class="cell-label">LINK SPECIFICATION</span>
-          <div class="cell-value mono">CUSTOM 11-BYTE HEADER</div>
-        </div>
         <div class="instrument-cell">
           <span class="cell-label">ERROR DETECTION</span>
           <div class="cell-value mono">CRC32 + SHA-256</div>
@@ -75,7 +62,7 @@
               <strong class="meta-val mono" id="fileSize">-</strong>
             </div>
             <div class="meta-row">
-              <span class="meta-key">MIME TYPE</span>
+              <span class="meta-key">FILE TYPE</span>
               <strong class="meta-val mono" id="fileType">-</strong>
             </div>
           </div>
@@ -163,11 +150,11 @@
 
       <!-- RIGHT MAIN CONTENT: TELEMETRY & DIAGNOSTICS -->
       <div class="main-column">
-        <!-- 04: TRANSFER OVERVIEW & TELEMETRY -->
+        <!-- 04: TRANSFER OVERVIEW -->
         <section class="panel overview-panel">
           <div class="panel-header">
             <span class="panel-index">04</span>
-            <span class="panel-title">TRANSFER OVERVIEW &amp; TELEMETRY</span>
+            <span class="panel-title">TRANSFER OVERVIEW</span>
           </div>
 
           <!-- INDUSTRIAL PIPELINE STRIP -->
@@ -339,7 +326,7 @@
         <section class="panel integrity-panel">
           <div class="panel-header">
             <span class="panel-index">08</span>
-            <span class="panel-title">CRYPTOGRAPHIC INTEGRITY LAB</span>
+            <span class="panel-title">INTEGRITY CHECK</span>
           </div>
 
           <div class="hash-matrix">
@@ -366,7 +353,9 @@
           </div>
         </section>
 
-        <!-- 09: TRANSFER HISTORY LOG -->
+      </div>
+
+      <!-- 09: TRANSFER HISTORY LOG -->
         <section class="panel history-panel">
           <div class="panel-header">
             <div class="header-left">
@@ -402,13 +391,12 @@
             </table>
           </div>
         </section>
-      </div>
     </main>
 
     <!-- FOOTER TELEMETRY STRIP -->
     <footer class="app-footer">
       <div class="footer-left">
-        <span>DATAGRAM PROTOCOL LAB</span>
+        <span>RELIABLE FILE TRANSFER LAB</span>
         <span class="footer-dot">&bull;</span>
         <span>RFC SPECIFICATION 0x01</span>
       </div>
