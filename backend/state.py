@@ -49,6 +49,7 @@ class TransferState:
             "receiver_ip": "127.0.0.1",
             "receiver_port": 9000,
             "receiver_status": "Not Connected",
+            "output_path": None,
         }
 
     def _load_history(self):
@@ -152,6 +153,7 @@ class TransferState:
             self.current["receiver_status"] = "Transfer Completed" if self.current["status"] == "complete" else "Connection Failed"
             self.current["message"] = "Transfer complete and file verified" if self.current["status"] == "complete" else "Transfer complete but hashes differ"
             self.current["progress"] = 100 if self.current["status"] == "complete" else self.current["progress"]
+            self.current["output_path"] = str(output_path)
             history_item = {
                 "filename": self.current["filename"],
                 "size": self.current["file_size"],

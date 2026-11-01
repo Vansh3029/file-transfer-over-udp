@@ -3,185 +3,420 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Reliable File Transfer over UDP</title>
+    <title>DATAGRAM — Reliable File Transfer over UDP</title>
     <link rel="stylesheet" href="/style.css" />
   </head>
   <body>
-    <header class="topbar">
-      <div>
-        <h1>Reliable File Transfer over UDP</h1>
-        <p>Data Communication Project</p>
+    <!-- APPLICATION HEADER -->
+    <header class="app-header">
+      <div class="header-brand">
+        <div class="brand-topline">
+          <span class="system-tag">NETWORK PROTOCOL LAB</span>
+          <span class="version-tag">v1.0</span>
+          <span class="protocol-tag">UDP-SR ARQ</span>
+        </div>
+        <h1 class="brand-title">DATAGRAM</h1>
+        <p class="brand-subtitle">RELIABLE FILE TRANSFER SYSTEM &bull; Reliable File Transfer over UDP</p>
       </div>
-      <div class="status-pill">
-        <span class="pulse"></span>
-        <span>UDP</span>
-        <strong id="connectionState">Ready</strong>
+
+      <div class="header-instrument-bar">
+        <div class="instrument-cell">
+          <span class="cell-label">SYSTEM STATE</span>
+          <div class="cell-value state-value">
+            <span class="status-indicator" id="statusLed"></span>
+            <span id="connectionState">Ready</span>
+          </div>
+        </div>
+        <div class="instrument-cell">
+          <span class="cell-label">LINK SPECIFICATION</span>
+          <div class="cell-value mono">CUSTOM 11-BYTE HEADER</div>
+        </div>
+        <div class="instrument-cell">
+          <span class="cell-label">ERROR DETECTION</span>
+          <div class="cell-value mono">CRC32 + SHA-256</div>
+        </div>
       </div>
     </header>
 
-    <main class="layout">
-      <section class="panel control-panel">
-        <div class="section-title">
-          <span>File</span>
-          <small>Binary safe upload</small>
-        </div>
-        <label class="drop-zone" for="fileInput">
-          <input id="fileInput" type="file" />
-          <span class="upload-icon">+</span>
-          <strong>Choose File</strong>
-          <small>TXT, PDF, JPG, MP4, ZIP, DOCX, EXE and more</small>
-        </label>
-        <div class="file-meta">
-          <div><span>Filename</span><strong id="fileName">No file selected</strong></div>
-          <div><span>File size</span><strong id="fileSize">-</strong></div>
-          <div><span>File type</span><strong id="fileType">-</strong></div>
-        </div>
-
-        <div class="section-title">
-          <span>Receiver Configuration</span>
-          <small>Destination IP & UDP port</small>
-        </div>
-        <div class="config-grid receiver-config-grid">
-          <label>Receiver IP Address
-            <input id="receiverIp" type="text" value="127.0.0.1" placeholder="127.0.0.1" />
-          </label>
-          <label>Receiver UDP Port
-            <input id="receiverPort" type="number" value="9000" min="1" max="65535" placeholder="9000" />
-          </label>
-        </div>
-        <div class="receiver-status-row">
-          <span>Receiver Connection:</span>
-          <span id="receiverStatusBadge" class="status-badge not-connected">Not Connected</span>
-        </div>
-
-        <div class="section-title">
-          <span>Transfer Configuration</span>
-          <small>Application-layer reliability</small>
-        </div>
-        <div class="config-grid">
-          <label>Packet Loss
-            <select id="packetLoss">
-              <option value="0">0%</option>
-              <option value="5">5%</option>
-              <option value="10" selected>10%</option>
-              <option value="20">20%</option>
-              <option value="30">30%</option>
-            </select>
-          </label>
-          <label>Sliding Window
-            <select id="windowSize">
-              <option>1</option>
-              <option>4</option>
-              <option selected>8</option>
-              <option>16</option>
-              <option>32</option>
-            </select>
-          </label>
-          <label>Timeout
-            <select id="timeoutMs">
-              <option value="50">50 ms</option>
-              <option value="100">100 ms</option>
-              <option value="250" selected>250 ms</option>
-              <option value="500">500 ms</option>
-            </select>
-          </label>
-        </div>
-        <button id="startBtn" class="primary-btn">START UDP TRANSFER</button>
-        <button id="resetBtn" class="ghost-btn">RESET DASHBOARD</button>
-        <p id="formMessage" class="message"></p>
-      </section>
-
-      <section class="panel hero-panel">
-        <div class="demo-strip">
-          <span>FILE</span><i></i><span>CHUNKING</span><i></i><span>UDP</span><i></i><span>ACK</span><i></i><span>RETRANSMISSION</span><i></i><span>REASSEMBLY</span><i></i><span>SHA-256</span><i></i><span>VERIFIED</span>
-        </div>
-        <div class="progress-wrap">
-          <div class="progress-text">
-            <span>Progress</span>
-            <strong id="progressText">0%</strong>
+    <!-- MAIN TWO-COLUMN WORKSPACE -->
+    <main class="workspace-grid">
+      <!-- LEFT SIDEBAR: CONTROL & CONFIGURATION -->
+      <aside class="sidebar-column">
+        <!-- 01: FILE INPUT PANEL -->
+        <section class="panel file-panel">
+          <div class="panel-header">
+            <span class="panel-index">01</span>
+            <span class="panel-title">PAYLOAD SOURCE</span>
           </div>
-          <div class="progress-track"><div id="progressBar"></div></div>
-        </div>
-        <div class="stats-grid">
-          <div><span>Packets</span><strong id="packetCount">0 / 0</strong></div>
-          <div><span>ACKs</span><strong id="ackCount">0</strong></div>
-          <div><span>Retransmissions</span><strong id="retransCount">0</strong></div>
-          <div><span>Simulated Drops</span><strong id="dropCount">0</strong></div>
-          <div><span>Window Size</span><strong id="windowStat">8</strong></div>
-          <div><span>Throughput</span><strong id="throughput">0 Mbps</strong></div>
-        </div>
-      </section>
 
-      <section class="panel flow-panel">
-        <div class="section-title">
-          <span>Packet Flow Visualization</span>
-          <small id="lossBadge">Loss simulation: 10%</small>
-        </div>
-        <div class="network">
-          <div class="node">SENDER</div>
-          <div class="wire">
-            <div id="packetMarker" class="packet-marker">DATA</div>
+          <div class="drop-zone" id="dropZone">
+            <input id="fileInput" type="file" />
+            <div class="drop-zone-content">
+              <svg class="drop-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="12" y1="18" x2="12" y2="12"></line>
+                <polyline points="9 15 12 12 15 15"></polyline>
+              </svg>
+              <div class="drop-label">
+                <strong>Select or Drag Payload File</strong>
+                <span class="drop-sub">Binary, Image, PDF, ZIP, Executable</span>
+              </div>
+            </div>
           </div>
-          <div class="node network-node">UDP NETWORK</div>
-          <div class="wire ack-wire">
-            <div id="ackMarker" class="ack-marker">ACK</div>
+
+          <div class="meta-table">
+            <div class="meta-row">
+              <span class="meta-key">FILENAME</span>
+              <strong class="meta-val mono" id="fileName">No file selected</strong>
+            </div>
+            <div class="meta-row">
+              <span class="meta-key">SIZE</span>
+              <strong class="meta-val mono" id="fileSize">-</strong>
+            </div>
+            <div class="meta-row">
+              <span class="meta-key">MIME TYPE</span>
+              <strong class="meta-val mono" id="fileType">-</strong>
+            </div>
           </div>
-          <div class="node">RECEIVER</div>
-        </div>
-        <div id="eventList" class="event-list"></div>
-      </section>
+        </section>
 
-      <section class="panel inspector-panel">
-        <div class="section-title">
-          <span>Packet Inspector</span>
-          <small>Latest selectable packet</small>
-        </div>
-        <div id="packetList" class="packet-list"></div>
-        <div class="inspector" id="inspector">
-          <div><span>Sequence Number</span><strong>-</strong></div>
-          <div><span>Type</span><strong>-</strong></div>
-          <div><span>Payload Length</span><strong>-</strong></div>
-          <div><span>CRC32</span><strong>-</strong></div>
-          <div><span>CRC Status</span><strong>-</strong></div>
-        </div>
-      </section>
+        <!-- 02: RECEIVER CONFIGURATION PANEL -->
+        <section class="panel receiver-panel">
+          <div class="panel-header">
+            <span class="panel-index">02</span>
+            <span class="panel-title">RECEIVER ENDPOINT</span>
+          </div>
 
-      <section class="panel integrity-panel">
-        <div class="section-title">
-          <span>File Integrity</span>
-          <small>Real SHA-256 comparison</small>
-        </div>
-        <div class="hash-row"><span>Original SHA-256</span><code id="senderHash">-</code></div>
-        <div class="hash-row"><span>Received SHA-256</span><code id="receiverHash">-</code></div>
-        <div id="integrityState" class="verify pending">PENDING</div>
-      </section>
+          <div class="input-grid">
+            <div class="input-group">
+              <label for="receiverIp" class="field-label">RECEIVER IP ADDRESS</label>
+              <input id="receiverIp" type="text" value="127.0.0.1" placeholder="127.0.0.1" autocomplete="off" spellcheck="false" class="mono-input" />
+            </div>
+            <div class="input-group">
+              <label for="receiverPort" class="field-label">UDP PORT</label>
+              <input id="receiverPort" type="number" value="9000" min="1" max="65535" placeholder="9000" class="mono-input" />
+            </div>
+          </div>
 
-      <section class="panel history-panel">
-        <div class="section-title">
-          <span>Transfer History</span>
-          <small>Stored in JSON</small>
+          <div class="receiver-status-box">
+            <span class="status-box-label">LINK STATUS</span>
+            <span id="receiverStatusBadge" class="status-badge not-connected">Not Connected</span>
+          </div>
+        </section>
+
+        <!-- 03: TRANSFER CONFIGURATION PANEL -->
+        <section class="panel transfer-panel">
+          <div class="panel-header">
+            <span class="panel-index">03</span>
+            <span class="panel-title">PROTOCOL PARAMETERS</span>
+          </div>
+
+          <div class="select-stack">
+            <div class="select-group">
+              <label for="packetLoss" class="field-label">PACKET LOSS SIMULATION</label>
+              <div class="select-wrapper">
+                <select id="packetLoss">
+                  <option value="0">0% — Clean Link</option>
+                  <option value="5">5% — Low Loss</option>
+                  <option value="10" selected>10% — Moderate Loss</option>
+                  <option value="20">20% — Heavy Loss</option>
+                  <option value="30">30% — Stress Test</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="select-group">
+              <label for="windowSize" class="field-label">SLIDING WINDOW SIZE (W)</label>
+              <div class="select-wrapper">
+                <select id="windowSize">
+                  <option value="1">1 Packet (Stop-and-Wait)</option>
+                  <option value="4">4 Packets</option>
+                  <option value="8" selected>8 Packets (Recommended)</option>
+                  <option value="16">16 Packets</option>
+                  <option value="32">32 Packets (High Throughput)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="select-group">
+              <label for="timeoutMs" class="field-label">ARQ TIMEOUT INTERVAL</label>
+              <div class="select-wrapper">
+                <select id="timeoutMs">
+                  <option value="50">50 ms (Low Latency)</option>
+                  <option value="100">100 ms</option>
+                  <option value="250" selected>250 ms (Standard)</option>
+                  <option value="500">500 ms (Wide Window)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="action-stack">
+            <button id="startBtn" class="btn-primary">START UDP TRANSFER</button>
+            <button id="resetBtn" class="btn-secondary">RESET DASHBOARD</button>
+          </div>
+
+          <div id="formMessage" class="message-banner" role="alert" aria-live="polite"></div>
+        </section>
+      </aside>
+
+      <!-- RIGHT MAIN CONTENT: TELEMETRY & DIAGNOSTICS -->
+      <div class="main-column">
+        <!-- 04: TRANSFER OVERVIEW & TELEMETRY -->
+        <section class="panel overview-panel">
+          <div class="panel-header">
+            <span class="panel-index">04</span>
+            <span class="panel-title">TRANSFER OVERVIEW &amp; TELEMETRY</span>
+          </div>
+
+          <!-- INDUSTRIAL PIPELINE STRIP -->
+          <div class="pipeline-strip">
+            <div class="pipe-step active"><span>PAYLOAD</span></div>
+            <div class="pipe-arrow">&rarr;</div>
+            <div class="pipe-step"><span>1024B CHUNKING</span></div>
+            <div class="pipe-arrow">&rarr;</div>
+            <div class="pipe-step"><span>CRC32 SEAL</span></div>
+            <div class="pipe-arrow">&rarr;</div>
+            <div class="pipe-step"><span>UDP TRANSMIT</span></div>
+            <div class="pipe-arrow">&rarr;</div>
+            <div class="pipe-step"><span>SELECTIVE ACK</span></div>
+            <div class="pipe-arrow">&rarr;</div>
+            <div class="pipe-step"><span>REASSEMBLY</span></div>
+            <div class="pipe-arrow">&rarr;</div>
+            <div class="pipe-step"><span>SHA-256 CHECK</span></div>
+          </div>
+
+          <!-- PROGRESS BAR & READOUT -->
+          <div class="meter-block">
+            <div class="meter-header">
+              <span class="meter-label">TRANSMISSION PROGRESS</span>
+              <strong id="progressText" class="meter-value mono">0%</strong>
+            </div>
+            <div class="meter-track">
+              <div id="progressBar" class="meter-bar" style="width: 0%;"></div>
+            </div>
+            <div class="meter-ruler">
+              <span>0%</span>
+              <span>25%</span>
+              <span>50%</span>
+              <span>75%</span>
+              <span>100%</span>
+            </div>
+          </div>
+
+          <!-- INSTRUMENT METRICS GRID -->
+          <div class="telemetry-grid">
+            <div class="telemetry-card">
+              <span class="telemetry-label">PACKETS ACKED / TOTAL</span>
+              <strong class="telemetry-val mono" id="packetCount">0 / 0</strong>
+            </div>
+            <div class="telemetry-card">
+              <span class="telemetry-label">ACKS RECEIVED</span>
+              <strong class="telemetry-val mono" id="ackCount">0</strong>
+            </div>
+            <div class="telemetry-card">
+              <span class="telemetry-label">RETRANSMISSIONS</span>
+              <strong class="telemetry-val mono" id="retransCount">0</strong>
+            </div>
+            <div class="telemetry-card">
+              <span class="telemetry-label">SIMULATED DROPS</span>
+              <strong class="telemetry-val mono" id="dropCount">0</strong>
+            </div>
+            <div class="telemetry-card">
+              <span class="telemetry-label">WINDOW SIZE (W)</span>
+              <strong class="telemetry-val mono" id="windowStat">8</strong>
+            </div>
+            <div class="telemetry-card highlight-card">
+              <span class="telemetry-label">MEASURED THROUGHPUT</span>
+              <strong class="telemetry-val mono highlight" id="throughput">0 Mbps</strong>
+            </div>
+          </div>
+        </section>
+
+        <!-- 05: NETWORK FLOW VISUALIZATION -->
+        <section class="panel flow-panel">
+          <div class="panel-header">
+            <div class="header-left">
+              <span class="panel-index">05</span>
+              <span class="panel-title">NETWORK FLOW VISUALIZATION</span>
+            </div>
+            <div class="header-right">
+              <span id="lossBadge" class="filter-pill mono">Loss simulation: 10%</span>
+            </div>
+          </div>
+
+          <div class="schematic-container">
+            <div class="schematic-node node-sender">
+              <span class="node-badge">TX</span>
+              <div class="node-meta">
+                <strong>SENDER</strong>
+                <small class="mono">HOST INTERFACE</small>
+              </div>
+            </div>
+
+            <div class="schematic-conduit">
+              <div class="conduit-channel forward-channel">
+                <span class="conduit-title">DATA CHANNEL &bull; UDP</span>
+                <div class="channel-line">
+                  <div id="packetMarker" class="signal-packet data-signal">DATA</div>
+                </div>
+              </div>
+              <div class="conduit-hub">
+                <span class="hub-tag">UDP NETWORK</span>
+                <small class="mono hub-detail">DROP / LOSS ENGINE</small>
+              </div>
+              <div class="conduit-channel reverse-channel">
+                <span class="conduit-title">ACK CHANNEL &bull; SELECTIVE REPEAT</span>
+                <div class="channel-line">
+                  <div id="ackMarker" class="signal-packet ack-signal">ACK</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="schematic-node node-receiver">
+              <span class="node-badge">RX</span>
+              <div class="node-meta">
+                <strong>RECEIVER</strong>
+                <small class="mono">ENDPOINT LISTENER</small>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SPLIT ROW: EVENT STREAM & PACKET INSPECTOR -->
+        <div class="split-grid">
+          <!-- 06: PACKET EVENT STREAM -->
+          <section class="panel events-panel">
+            <div class="panel-header">
+              <span class="panel-index">06</span>
+              <span class="panel-title">PACKET EVENT STREAM</span>
+            </div>
+            <div class="events-scroll" id="eventList">
+              <div class="empty-state mono">No network activity recorded</div>
+            </div>
+          </section>
+
+          <!-- 07: PACKET INSPECTOR -->
+          <section class="panel inspector-panel">
+            <div class="panel-header">
+              <span class="panel-index">07</span>
+              <span class="panel-title">PACKET INSPECTOR</span>
+            </div>
+            <div class="inspector-tray">
+              <div class="tray-label">RECENT PACKET BUFFER</div>
+              <div id="packetList" class="packet-scroll">
+                <div class="empty-state mono">No packets in buffer</div>
+              </div>
+            </div>
+
+            <div class="inspector-card" id="inspector">
+              <div class="inspector-field">
+                <span class="field-name">SEQUENCE NUMBER</span>
+                <strong class="field-val mono">-</strong>
+              </div>
+              <div class="inspector-field">
+                <span class="field-name">PACKET TYPE</span>
+                <strong class="field-val mono">-</strong>
+              </div>
+              <div class="inspector-field">
+                <span class="field-name">PAYLOAD LENGTH</span>
+                <strong class="field-val mono">-</strong>
+              </div>
+              <div class="inspector-field">
+                <span class="field-name">CRC32 CHECKSUM</span>
+                <strong class="field-val mono">-</strong>
+              </div>
+              <div class="inspector-field">
+                <span class="field-name">CRC32 INTEGRITY</span>
+                <strong class="field-val mono">-</strong>
+              </div>
+            </div>
+          </section>
         </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Filename</th>
-                <th>Receiver</th>
-                <th>Size</th>
-                <th>Duration</th>
-                <th>Throughput</th>
-                <th>Packets</th>
-                <th>Retransmissions</th>
-                <th>Loss</th>
-                <th>Integrity</th>
-                <th>Timestamp</th>
-              </tr>
-            </thead>
-            <tbody id="historyBody"></tbody>
-          </table>
-        </div>
-      </section>
+
+        <!-- 08: FILE INTEGRITY LAB -->
+        <section class="panel integrity-panel">
+          <div class="panel-header">
+            <span class="panel-index">08</span>
+            <span class="panel-title">CRYPTOGRAPHIC INTEGRITY LAB</span>
+          </div>
+
+          <div class="hash-matrix">
+            <div class="hash-cell">
+              <div class="hash-cell-header">
+                <span class="hash-label">ORIGINAL SHA-256 DIGEST (SENDER PAYLOAD)</span>
+                <button type="button" class="btn-copy" data-target="senderHash" title="Copy Sender SHA-256">COPY</button>
+              </div>
+              <code id="senderHash" class="hash-code mono">-</code>
+            </div>
+
+            <div class="hash-cell">
+              <div class="hash-cell-header">
+                <span class="hash-label">REASSEMBLED SHA-256 DIGEST (RECEIVER FILE)</span>
+                <button type="button" class="btn-copy" data-target="receiverHash" title="Copy Receiver SHA-256">COPY</button>
+              </div>
+              <code id="receiverHash" class="hash-code mono">-</code>
+            </div>
+          </div>
+
+          <div class="integrity-banner">
+            <div class="banner-label">INTEGRITY VERIFICATION STATUS</div>
+            <div id="integrityState" class="verify pending">PENDING</div>
+          </div>
+        </section>
+
+        <!-- 09: TRANSFER HISTORY LOG -->
+        <section class="panel history-panel">
+          <div class="panel-header">
+            <div class="header-left">
+              <span class="panel-index">09</span>
+              <span class="panel-title">SESSION AUDIT LOG &amp; TRANSFER HISTORY</span>
+            </div>
+            <div class="header-right">
+              <span class="table-count mono">STORED IN JSON</span>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>FILENAME</th>
+                  <th>RECEIVER</th>
+                  <th>SIZE</th>
+                  <th>DURATION</th>
+                  <th>THROUGHPUT</th>
+                  <th>PACKETS</th>
+                  <th>RETX</th>
+                  <th>LOSS</th>
+                  <th>INTEGRITY</th>
+                  <th>TIMESTAMP</th>
+                </tr>
+              </thead>
+              <tbody id="historyBody">
+                <tr>
+                  <td colspan="10" class="empty-state mono">No transfer history recorded</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
     </main>
+
+    <!-- FOOTER TELEMETRY STRIP -->
+    <footer class="app-footer">
+      <div class="footer-left">
+        <span>DATAGRAM PROTOCOL LAB</span>
+        <span class="footer-dot">&bull;</span>
+        <span>RFC SPECIFICATION 0x01</span>
+      </div>
+      <div class="footer-right mono">
+        <span>UDP ENGINE LISTENING ON 0.0.0.0:9000</span>
+      </div>
+    </footer>
+
     <script src="/app.js"></script>
   </body>
 </html>

@@ -71,7 +71,10 @@ def run_transfer_test(file_path: Path, window_size=8, timeout_ms=100, packet_los
         sender.run()
 
         snapshot = STATE.snapshot()["state"]
-        recv_path = Path(receiver.output_path or snapshot.get("output_path"))
+        raw_path = receiver.output_path or snapshot.get("output_path")
+        if not raw_path:
+            return False, f"Transfer failed or incomplete: {snapshot.get('message')}", {}
+        recv_path = Path(raw_path)
 
         if not recv_path.exists():
             return False, "Received file does not exist on disk", {}

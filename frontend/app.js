@@ -1,6 +1,7 @@
 const $ = (id) => document.getElementById(id);
 
 const fileInput = $("fileInput");
+const dropZone = $("dropZone");
 const startBtn = $("startBtn");
 const resetBtn = $("resetBtn");
 const message = $("formMessage");
@@ -23,7 +24,8 @@ function validatePort(port) {
 }
 
 function formatBytes(bytes) {
-  if (!bytes) return bytes === 0 ? "0 B" : "-";
+  if (bytes === 0) return "0 B";
+  if (!bytes) return "-";
   const units = ["B", "KB", "MB", "GB"];
   let value = bytes;
   let unit = 0;
@@ -38,116 +40,200 @@ function setFileMeta(file) {
   $("fileName").textContent = file ? file.name : "No file selected";
   $("fileSize").textContent = file ? formatBytes(file.size) : "-";
   $("fileType").textContent = file ? (file.type || "application/octet-stream") : "-";
+  
+  const payloadStep = document.querySelector(".pipe-step");
+  if (payloadStep) {
+    if (file) {
+      payloadStep.classList.add("active");
+    } else {
+      payloadStep.classList.remove("active");
+    }
+  }
 }
 
-fileInput.addEventListener("change", () => {
-  setFileMeta(fileInput.files[0]);
-  message.textContent = "";
-});
+// File Input Listeners (Click & Native selection)
+if (fileInput) {
+  fileInput.addEventListener("change", () => {
+    setFileMeta(fileInput.files[0]);
+    if (message) message.textContent = "";
+  });
+}
 
-startBtn.addEventListener("click", async () => {
-  const file = fileInput.files[0];
-  if (!file) {
-    message.textContent = "Select a file before starting transfer.";
-    return;
-  }
+// Drag & Drop Implementation
+if (dropZone && fileInput) {
+  ["dragenter", "dragover"].forEach((eventName) => {
+    dropZone.addEventListener(eventName, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropZone.classList.add("dragover");
+    });
+  });
 
-  const receiverIp = (receiverIpInput ? receiverIpInput.value : "127.0.0.1").trim();
-  const receiverPort = (receiverPortInput ? receiverPortInput.value : "9000").trim();
+  ["dragleave", "drop"].forEach((eventName) => {
+    dropZone.addEventListener(eventName, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropZone.classList.remove("dragover");
+    });
+  });
 
-  if (!validateIPv4(receiverIp)) {
-    message.textContent = `Validation Error: '${receiverIp}' is not a valid IPv4 address (e.g. 127.0.0.1 or 192.168.1.20).`;
-    return;
-  }
-
-  if (!validatePort(receiverPort)) {
-    message.textContent = `Validation Error: '${receiverPort}' is not a valid port. Must be between 1 and 65535.`;
-    return;
-  }
-
-  const body = new FormData();
-  body.append("file", file);
-  body.append("receiver_ip", receiverIp);
-  body.append("receiver_port", receiverPort);
-  body.append("packet_loss", $("packetLoss").value);
-  body.append("window_size", $("windowSize").value);
-  body.append("timeout_ms", $("timeoutMs").value);
-  startBtn.disabled = true;
-  message.textContent = "";
-
-  try {
-    const response = await fetch("/api/transfer", { method: "POST", body });
-    const data = await response.json();
-    if (!response.ok) {
-      message.textContent = data.error || "Unable to start transfer.";
-      startBtn.disabled = false;
-    } else {
-      await refresh();
+  dropZone.addEventListener("drop", (e) => {
+    const dt = e.dataTransfer;
+    if (dt && dt.files && dt.files.length > 0) {
+      fileInput.files = dt.files;
+      setFileMeta(dt.files[0]);
+      if (message) message.textContent = "";
     }
-  } catch (err) {
-    message.textContent = "Network error connecting to backend API.";
-    startBtn.disabled = false;
-  }
-});
+  });
+}
 
-resetBtn.addEventListener("click", async () => {
-  try {
-    const response = await fetch("/api/reset", { method: "POST" });
-    const data = await response.json();
-    if (!response.ok) {
-      message.textContent = data.error || "Unable to reset dashboard.";
+// Transfer Start Action
+if (startBtn) {
+  startBtn.addEventListener("click", async () => {
+    const file = fileInput ? fileInput.files[0] : null;
+    if (!file) {
+      if (message) message.textContent = "Select a payload file before starting UDP transfer.";
       return;
     }
-    selectedPacketKey = null;
-    message.textContent = "";
-    await refresh();
-  } catch (err) {
-    message.textContent = "Failed to reset dashboard.";
-  }
+
+    const receiverIp = (receiverIpInput ? receiverIpInput.value : "127.0.0.1").trim();
+    const receiverPort = (receiverPortInput ? receiverPortInput.value : "9000").trim();
+
+    if (!validateIPv4(receiverIp)) {
+      if (message) message.textContent = `Validation Error: '${receiverIp}' is not a valid IPv4 address (e.g. 127.0.0.1 or 192.168.1.20).`;
+      return;
+    }
+
+    if (!validatePort(receiverPort)) {
+      if (message) message.textContent = `Validation Error: '${receiverPort}' is not a valid port. Must be between 1 and 65535.`;
+      return;
+    }
+
+    const body = new FormData();
+    body.append("file", file);
+    body.append("receiver_ip", receiverIp);
+    body.append("receiver_port", receiverPort);
+    body.append("packet_loss", $("packetLoss").value);
+    body.append("window_size", $("windowSize").value);
+    body.append("timeout_ms", $("timeoutMs").value);
+    
+    startBtn.disabled = true;
+    if (message) message.textContent = "";
+
+    try {
+      const response = await fetch("/api/transfer", { method: "POST", body });
+      const data = await response.json();
+      if (!response.ok) {
+        if (message) message.textContent = data.error || "Unable to initiate transfer session.";
+        startBtn.disabled = false;
+      } else {
+        await refresh();
+      }
+    } catch (err) {
+      if (message) message.textContent = "Network error connecting to backend API.";
+      startBtn.disabled = false;
+    }
+  });
+}
+
+// Reset Dashboard Action with Confirmation
+if (resetBtn) {
+  resetBtn.addEventListener("click", async () => {
+    if (!confirm("Are you sure you want to reset the transfer session and dashboard?")) {
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/reset", { method: "POST" });
+      const data = await response.json();
+      if (!response.ok) {
+        if (message) message.textContent = data.error || "Unable to reset dashboard.";
+        return;
+      }
+      selectedPacketKey = null;
+      if (message) message.textContent = "";
+      await refresh();
+    } catch (err) {
+      if (message) message.textContent = "Failed to communicate with reset API.";
+    }
+  });
+}
+
+// Clipboard Copy Helpers
+document.querySelectorAll(".btn-copy").forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    const targetId = btn.getAttribute("data-target");
+    const targetEl = $(targetId);
+    if (!targetEl) return;
+    const text = targetEl.textContent.trim();
+    if (!text || text === "-") return;
+    try {
+      await navigator.clipboard.writeText(text);
+      btn.textContent = "COPIED";
+      btn.classList.add("copied");
+      setTimeout(() => {
+        btn.textContent = "COPY";
+        btn.classList.remove("copied");
+      }, 1500);
+    } catch (err) {
+      console.warn("Clipboard write failed:", err);
+    }
+  });
 });
 
 function renderEvents(events) {
-  $("eventList").innerHTML = events.slice(0, 30).map((item) => `
-    <div class="event ${item.status}">
-      <strong>${item.time}</strong>
-      <span>${item.event}${item.seq !== null && item.seq !== undefined ? ` #${item.seq}` : ""}</span>
-      <span>${item.detail || ""}</span>
-    </div>
-  `).join("");
+  const container = $("eventList");
+  if (!container) return;
+  if (!events || events.length === 0) {
+    container.innerHTML = '<div class="empty-state mono">No network activity recorded</div>';
+    return;
+  }
+
+  container.innerHTML = events.slice(0, 40).map((item) => {
+    const statusClass = item.status || "info";
+    const seqStr = (item.seq !== null && item.seq !== undefined) ? ` #${item.seq}` : "";
+    return `
+      <div class="event-row ${statusClass}">
+        <span class="event-time mono">${item.time}</span>
+        <span class="event-tag mono">${item.event}${seqStr}</span>
+        <span class="event-detail" title="${item.detail || ""}">${item.detail || "-"}</span>
+      </div>
+    `;
+  }).join("");
 }
 
 function renderPackets(packets) {
+  const listEl = $("packetList");
+  if (!listEl) return;
   if (!packets || packets.length === 0) {
-    $("packetList").innerHTML = '<div style="padding: 10px; color: var(--muted);">No packets logged yet</div>';
+    listEl.innerHTML = '<div class="empty-state mono">No packets in buffer</div>';
     renderInspector(null);
     return;
   }
 
-  const visiblePackets = packets.slice(0, 20);
+  const visiblePackets = packets.slice(0, 24);
   let activePacket = visiblePackets.find((p) => `${p.seq}-${p.type}` === selectedPacketKey);
   if (!activePacket) {
     activePacket = visiblePackets[0];
     selectedPacketKey = `${activePacket.seq}-${activePacket.type}`;
   }
 
-  $("packetList").innerHTML = visiblePackets.map((packet) => {
+  listEl.innerHTML = visiblePackets.map((packet) => {
     const key = `${packet.seq}-${packet.type}`;
     const isActive = key === selectedPacketKey ? "active" : "";
     return `
-      <button class="packet-btn ${isActive}" data-key="${key}">
-        <strong>#${packet.seq}</strong>
-        <span>${packet.type}</span>
-        <span>${packet.length} bytes</span>
+      <button type="button" class="packet-pill ${isActive}" data-key="${key}">
+        #${packet.seq} ${packet.type}
       </button>
     `;
   }).join("");
 
-  document.querySelectorAll(".packet-btn").forEach((button) => {
+  listEl.querySelectorAll(".packet-pill").forEach((button) => {
     button.addEventListener("click", () => {
       selectedPacketKey = button.dataset.key;
       const found = visiblePackets.find((p) => `${p.seq}-${p.type}` === selectedPacketKey);
       if (found) {
-        document.querySelectorAll(".packet-btn").forEach((b) => b.classList.remove("active"));
+        listEl.querySelectorAll(".packet-pill").forEach((b) => b.classList.remove("active"));
         button.classList.add("active");
         renderInspector(found);
       }
@@ -158,45 +244,108 @@ function renderPackets(packets) {
 }
 
 function renderInspector(packet) {
+  const inspector = $("inspector");
+  if (!inspector) return;
+  
   const values = packet
-    ? [packet.seq, packet.type, `${packet.length} bytes`, packet.crc32, packet.crc_valid ? "VALID" : "INVALID"]
+    ? [
+        `SEQ #${packet.seq}`,
+        packet.type,
+        `${packet.length} bytes`,
+        `0x${packet.crc32}`,
+        packet.crc_valid ? "VALID (MATCH)" : "CORRUPT (MISMATCH)"
+      ]
     : ["-", "-", "-", "-", "-"];
-  $("inspector").querySelectorAll("strong").forEach((node, index) => {
-    node.textContent = values[index];
+
+  const strongNodes = inspector.querySelectorAll("strong");
+  strongNodes.forEach((node, index) => {
+    if (index < values.length) {
+      node.textContent = values[index];
+      if (index === 4 && packet) {
+        node.style.color = packet.crc_valid ? "var(--color-success)" : "var(--color-error)";
+      } else if (index === 4) {
+        node.style.color = "";
+      }
+    }
   });
 }
 
 function renderHistory(history) {
-  $("historyBody").innerHTML = history.map((item) => `
-    <tr>
-      <td>${item.filename}</td>
-      <td><code>${item.receiver_ip || "127.0.0.1"}:${item.receiver_port || 9000}</code></td>
-      <td>${formatBytes(item.size)}</td>
-      <td>${item.duration}s</td>
-      <td>${item.throughput_mbps} Mbps</td>
-      <td>${item.packets}</td>
-      <td>${item.retransmissions}</td>
-      <td>${item.packet_loss}%</td>
-      <td>${item.integrity}</td>
-      <td>${item.timestamp}</td>
-    </tr>
-  `).join("");
+  const body = $("historyBody");
+  if (!body) return;
+  if (!history || history.length === 0) {
+    body.innerHTML = `<tr><td colspan="10" class="empty-state mono">No transfer history recorded</td></tr>`;
+    return;
+  }
+
+  body.innerHTML = history.map((item) => {
+    const isVerified = item.integrity === "VERIFIED";
+    const badgeClass = isVerified ? "verified" : "failed";
+    const endpoint = `${item.receiver_ip || "127.0.0.1"}:${item.receiver_port || 9000}`;
+    return `
+      <tr>
+        <td style="font-weight: 700;">${item.filename}</td>
+        <td><code class="mono">${endpoint}</code></td>
+        <td class="mono">${formatBytes(item.size)}</td>
+        <td class="mono">${item.duration}s</td>
+        <td class="mono">${item.throughput_mbps} Mbps</td>
+        <td class="mono">${item.packets}</td>
+        <td class="mono">${item.retransmissions}</td>
+        <td class="mono">${item.packet_loss}%</td>
+        <td><span class="table-badge ${badgeClass}">${item.integrity}</span></td>
+        <td class="mono" style="color: var(--text-secondary);">${item.timestamp}</td>
+      </tr>
+    `;
+  }).join("");
+}
+
+function updatePipeline(state, hasFile) {
+  const steps = document.querySelectorAll(".pipe-step");
+  if (!steps || steps.length === 0) return;
+
+  steps.forEach((s) => s.classList.remove("active"));
+  if (hasFile) steps[0]?.classList.add("active");
+
+  const isTransferring = (state.status === "starting" || state.status === "transferring");
+  const isComplete = (state.status === "complete");
+
+  if (isTransferring) {
+    steps[0]?.classList.add("active");
+    steps[1]?.classList.add("active");
+    steps[2]?.classList.add("active");
+    steps[3]?.classList.add("active");
+    steps[4]?.classList.add("active");
+  } else if (isComplete) {
+    steps.forEach((s) => s.classList.add("active"));
+  }
 }
 
 function updateDashboard(payload) {
   const state = payload.state;
-  $("connectionState").textContent = state.status;
-  $("progressText").textContent = `${state.progress || 0}%`;
-  $("progressBar").style.width = `${state.progress || 0}%`;
-  $("packetCount").textContent = `${state.packets_acked || 0} / ${state.total_packets || 0}`;
-  $("ackCount").textContent = state.packets_acked || 0;
-  $("retransCount").textContent = state.retransmissions || 0;
-  $("dropCount").textContent = state.packets_lost || 0;
-  $("windowStat").textContent = state.window_size || $("windowSize").value;
-  $("throughput").textContent = `${state.throughput_mbps || 0} Mbps`;
-  $("lossBadge").textContent = `Loss simulation: ${state.packet_loss ?? $("packetLoss").value}%`;
-  $("senderHash").textContent = state.sender_hash || "-";
-  $("receiverHash").textContent = state.receiver_hash || "-";
+  const isTransferring = (state.status === "starting" || state.status === "transferring");
+  const isFailed = (state.status === "failed");
+  const isComplete = (state.status === "complete");
+
+  if ($("connectionState")) $("connectionState").textContent = state.status;
+  
+  // LED Status Indicator
+  const led = $("statusLed");
+  if (led) {
+    led.className = "status-indicator" + (isTransferring ? " transferring" : (isFailed ? " failed" : ""));
+  }
+
+  if ($("progressText")) $("progressText").textContent = `${state.progress || 0}%`;
+  if ($("progressBar")) $("progressBar").style.width = `${state.progress || 0}%`;
+  if ($("packetCount")) $("packetCount").textContent = `${state.packets_acked || 0} / ${state.total_packets || 0}`;
+  if ($("ackCount")) $("ackCount").textContent = state.packets_acked || 0;
+  if ($("retransCount")) $("retransCount").textContent = state.retransmissions || 0;
+  if ($("dropCount")) $("dropCount").textContent = state.packets_lost || 0;
+  if ($("windowStat")) $("windowStat").textContent = state.window_size || ($("windowSize") ? $("windowSize").value : 8);
+  if ($("throughput")) $("throughput").textContent = `${state.throughput_mbps || 0} Mbps`;
+  if ($("lossBadge")) $("lossBadge").textContent = `Loss simulation: ${state.packet_loss ?? ($("packetLoss") ? $("packetLoss").value : 10)}%`;
+  
+  if ($("senderHash")) $("senderHash").textContent = state.sender_hash || "-";
+  if ($("receiverHash")) $("receiverHash").textContent = state.receiver_hash || "-";
 
   // Receiver Connection Status Badge
   const receiverStatus = state.receiver_status || "Not Connected";
@@ -213,7 +362,7 @@ function updateDashboard(payload) {
     receiverStatusBadge.className = `status-badge ${statusMap[receiverStatus] || "not-connected"}`;
   }
 
-  const isTransferring = (state.status === "starting" || state.status === "transferring");
+  // Animated Flow Packet Signals
   const packetMarker = $("packetMarker");
   const ackMarker = $("ackMarker");
   if (packetMarker && ackMarker) {
@@ -226,22 +375,49 @@ function updateDashboard(payload) {
     }
   }
 
+  // File Integrity State Badge
   const integrity = $("integrityState");
-  integrity.textContent = state.integrity_status === "VERIFIED" ? "HASH MATCH - FILE VERIFIED" : state.integrity_status;
-  integrity.className = `verify ${String(state.integrity_status || "pending").toLowerCase()}`;
-
-  if (state.filename) {
-    $("fileName").textContent = state.filename;
-    $("fileSize").textContent = formatBytes(state.file_size);
-    $("fileType").textContent = state.file_type || "application/octet-stream";
+  if (integrity) {
+    let text = state.integrity_status;
+    let className = "verify pending";
+    if (state.integrity_status === "VERIFIED") {
+      text = "HASH MATCH \u2014 FILE INTEGRITY CONFIRMED";
+      className = "verify verified";
+    } else if (state.integrity_status === "FAILED") {
+      text = "HASH MISMATCH \u2014 INTEGRITY FAILED";
+      className = "verify failed";
+    } else if (isTransferring) {
+      text = "VERIFYING INGESTION STREAM...";
+      className = "verify pending";
+    } else {
+      text = "PENDING \u2014 AWAITING TRANSFER";
+      className = "verify pending";
+    }
+    integrity.textContent = text;
+    integrity.className = className;
   }
 
+  // Update Metadata If Available From Backend
+  const hasFile = Boolean(state.filename || (fileInput && fileInput.files && fileInput.files[0]));
+  if (state.filename) {
+    if ($("fileName")) $("fileName").textContent = state.filename;
+    if ($("fileSize")) $("fileSize").textContent = formatBytes(state.file_size);
+    if ($("fileType")) $("fileType").textContent = state.file_type || "application/octet-stream";
+  }
+
+  updatePipeline(state, hasFile);
   renderEvents(payload.events || []);
   renderPackets(payload.packets || []);
 
-  if (!isTransferring) {
-    startBtn.disabled = false;
+  // Form Controls Availability
+  if (startBtn) {
+    startBtn.disabled = isTransferring;
   }
+  if (receiverIpInput) receiverIpInput.disabled = isTransferring;
+  if (receiverPortInput) receiverPortInput.disabled = isTransferring;
+  if ($("packetLoss")) $("packetLoss").disabled = isTransferring;
+  if ($("windowSize")) $("windowSize").disabled = isTransferring;
+  if ($("timeoutMs")) $("timeoutMs").disabled = isTransferring;
 }
 
 async function refresh() {
@@ -255,7 +431,7 @@ async function refresh() {
       renderHistory((await historyResponse.json()).history || []);
     }
   } catch (err) {
-    // Graceful background poll retry
+    // Graceful background retry without flooding
   }
 }
 
