@@ -192,10 +192,11 @@ function renderEvents(events) {
   container.innerHTML = events.slice(0, 40).map((item) => {
     const statusClass = item.status || "info";
     const seqStr = (item.seq !== null && item.seq !== undefined) ? ` #${item.seq}` : "";
+    const direction = item.direction === "receiver" ? "RX" : "TX";
     return `
       <div class="event-row ${statusClass}">
         <span class="event-time mono">${item.time}</span>
-        <span class="event-tag mono">${item.event}${seqStr}</span>
+        <span class="event-tag mono">${direction} ${item.event}${seqStr}</span>
         <span class="event-detail" title="${item.detail || ""}">${item.detail || "-"}</span>
       </div>
     `;
@@ -212,18 +213,21 @@ function renderPackets(packets) {
   }
 
   const visiblePackets = packets.slice(0, 24);
-  let activePacket = visiblePackets.find((p) => `${p.seq}-${p.type}` === selectedPacketKey);
+  const packetKey = (packet) => `${packet.id || ""}-${packet.direction || ""}-${packet.seq}-${packet.type}`;
+  let activePacket = visiblePackets.find((p) => packetKey(p) === selectedPacketKey);
   if (!activePacket) {
     activePacket = visiblePackets[0];
-    selectedPacketKey = `${activePacket.seq}-${activePacket.type}`;
+    selectedPacketKey = packetKey(activePacket);
   }
 
   listEl.innerHTML = visiblePackets.map((packet) => {
-    const key = `${packet.seq}-${packet.type}`;
+    const key = packetKey(packet);
     const isActive = key === selectedPacketKey ? "active" : "";
+    const direction = packet.direction === "receiver" ? "RX" : "TX";
+    const retry = packet.retransmission ? " RETX" : "";
     return `
-      <button type="button" class="packet-pill ${isActive}" data-key="${key}">
-        #${packet.seq} ${packet.type}
+      <button type="button" class="packet-pill ${isActive}" data-key="${key}" title="${direction} ${packet.type || "PACKET"}${retry}">
+        ${direction} #${packet.seq} ${packet.type || "PACKET"}${retry}
       </button>
     `;
   }).join("");
@@ -231,7 +235,7 @@ function renderPackets(packets) {
   listEl.querySelectorAll(".packet-pill").forEach((button) => {
     button.addEventListener("click", () => {
       selectedPacketKey = button.dataset.key;
-      const found = visiblePackets.find((p) => `${p.seq}-${p.type}` === selectedPacketKey);
+      const found = visiblePackets.find((p) => packetKey(p) === selectedPacketKey);
       if (found) {
         listEl.querySelectorAll(".packet-pill").forEach((b) => b.classList.remove("active"));
         button.classList.add("active");
@@ -347,6 +351,26 @@ function updateDashboard(payload) {
   if ($("senderHash")) $("senderHash").textContent = state.sender_hash || "-";
   if ($("receiverHash")) $("receiverHash").textContent = state.receiver_hash || "-";
 
+  const telemetryEvents = [
+    ...(payload.sender_telemetry || []),
+    ...(payload.receiver_telemetry || [])
+  ];
+  const telemetryStatus = $("telemetryStatus");
+  if (telemetryStatus) {
+    if (payload.receiver_telemetry_available === false && state.transfer_id) {
+      telemetryStatus.textContent = "Receiver telemetry unavailable";
+      telemetryStatus.className = "telemetry-status mono unavailable";
+    } else if (telemetryEvents.length > 0) {
+      telemetryStatus.textContent = payload.receiver_telemetry_available === false
+        ? "Sender telemetry only"
+        : "Sender + receiver telemetry";
+      telemetryStatus.className = "telemetry-status mono available";
+    } else {
+      telemetryStatus.textContent = "";
+      telemetryStatus.className = "telemetry-status mono";
+    }
+  }
+
   // Receiver Connection Status Badge
   const receiverStatus = state.receiver_status === "Transfer Completed"
     ? "Receiver Ready"
@@ -417,7 +441,7 @@ function updateDashboard(payload) {
   }
 
   updatePipeline(state, hasFile);
-  renderEvents(payload.events || []);
+  renderEvents(telemetryEvents.length > 0 ? telemetryEvents : (payload.events || []));
   renderPackets(payload.packets || []);
 
   // Form Controls Availability

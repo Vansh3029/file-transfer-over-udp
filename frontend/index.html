@@ -292,6 +292,7 @@
             </div>
             <div class="inspector-tray">
               <div class="tray-label">RECENT PACKET BUFFER</div>
+              <div id="telemetryStatus" class="telemetry-status mono"></div>
               <div id="packetList" class="packet-scroll">
                 <div class="empty-state mono">No packets in buffer</div>
               </div>
@@ -322,38 +323,38 @@
           </section>
         </div>
 
-        <!-- 08: FILE INTEGRITY LAB -->
-        <section class="panel integrity-panel">
-          <div class="panel-header">
-            <span class="panel-index">08</span>
-            <span class="panel-title">INTEGRITY CHECK</span>
-          </div>
-
-          <div class="hash-matrix">
-            <div class="hash-cell">
-              <div class="hash-cell-header">
-                <span class="hash-label">ORIGINAL SHA-256 DIGEST (SENDER PAYLOAD)</span>
-                <button type="button" class="btn-copy" data-target="senderHash" title="Copy Sender SHA-256">COPY</button>
-              </div>
-              <code id="senderHash" class="hash-code mono">-</code>
-            </div>
-
-            <div class="hash-cell">
-              <div class="hash-cell-header">
-                <span class="hash-label">REASSEMBLED SHA-256 DIGEST (RECEIVER FILE)</span>
-                <button type="button" class="btn-copy" data-target="receiverHash" title="Copy Receiver SHA-256">COPY</button>
-              </div>
-              <code id="receiverHash" class="hash-code mono">-</code>
-            </div>
-          </div>
-
-          <div class="integrity-banner">
-            <div class="banner-label">INTEGRITY VERIFICATION STATUS</div>
-            <div id="integrityState" class="verify pending">PENDING</div>
-          </div>
-        </section>
-
       </div>
+
+      <!-- 08: FILE INTEGRITY LAB -->
+      <section class="panel integrity-panel">
+        <div class="panel-header">
+          <span class="panel-index">08</span>
+          <span class="panel-title">INTEGRITY CHECK</span>
+        </div>
+
+        <div class="hash-matrix">
+          <div class="hash-cell">
+            <div class="hash-cell-header">
+              <span class="hash-label">ORIGINAL SHA-256 DIGEST (SENDER PAYLOAD)</span>
+              <button type="button" class="btn-copy" data-target="senderHash" title="Copy Sender SHA-256">COPY</button>
+            </div>
+            <code id="senderHash" class="hash-code mono">-</code>
+          </div>
+
+          <div class="hash-cell">
+            <div class="hash-cell-header">
+              <span class="hash-label">REASSEMBLED SHA-256 DIGEST (RECEIVER FILE)</span>
+              <button type="button" class="btn-copy" data-target="receiverHash" title="Copy Receiver SHA-256">COPY</button>
+            </div>
+            <code id="receiverHash" class="hash-code mono">-</code>
+          </div>
+        </div>
+
+        <div class="integrity-banner">
+          <div class="banner-label">INTEGRITY VERIFICATION STATUS</div>
+          <div id="integrityState" class="verify pending">PENDING</div>
+        </div>
+      </section>
 
       <!-- 09: TRANSFER HISTORY LOG -->
         <section class="panel history-panel">
@@ -392,18 +393,6 @@
           </div>
         </section>
     </main>
-
-    <!-- FOOTER TELEMETRY STRIP -->
-    <footer class="app-footer">
-      <div class="footer-left">
-        <span>RELIABLE FILE TRANSFER LAB</span>
-        <span class="footer-dot">&bull;</span>
-        <span>RFC SPECIFICATION 0x01</span>
-      </div>
-      <div class="footer-right mono">
-        <span>UDP ENGINE LISTENING ON 0.0.0.0:9000</span>
-      </div>
-    </footer>
 
     <script src="/app.js"></script>
   </body>

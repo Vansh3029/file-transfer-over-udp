@@ -11,7 +11,7 @@ from pathlib import Path
 
 from config import DEFAULT_RECEIVER_IP, DEFAULT_RECEIVER_PORT, PAYLOAD_SIZE, UDP_HOST, UDP_PORT
 from integrity import sha256_file
-from protocol import ACK, FIN, FIN_ACK, READY, START, DATA, encode_metadata, make_packet, parse_packet
+from protocol import ACK, FIN, FIN_ACK, READY, START, DATA, HEADER_SIZE, encode_metadata, make_packet, parse_packet
 from udp_receiver import UDPReceiver
 
 
@@ -56,6 +56,7 @@ class ReliableUDPSender:
             udp_port=self.receiver_port,
             receiver_ip=self.receiver_ip,
             receiver_port=self.receiver_port,
+            transfer_id=self.session_id,
         )
 
         if self.spawn_local_receiver:
@@ -125,6 +126,12 @@ class ReliableUDPSender:
                             try:
                                 raw, _ = sock.recvfrom(4096)
                                 packet = parse_packet(raw)
+                                self.state.record_telemetry(
+                                    "sender", "ACK_RECEIVED", packet.type_name,
+                                    packet.seq, packet.length, packet.crc32,
+                                    packet.valid_crc, "success" if packet.valid_crc else "error",
+                                    detail="Incoming ACK packet",
+                                )
                                 if packet.valid_crc and packet.type == ACK:
                                     if packet.seq not in acked and packet.seq < total_packets:
                                         acked.add(packet.seq)
@@ -148,6 +155,11 @@ class ReliableUDPSender:
                     for seq in range(base, next_seq):
                         if seq not in acked and now - sent_at.get(seq, 0) > self.timeout:
                             retries[seq] = retries.get(seq, 0) + 1
+                            self.state.record_telemetry(
+                                "sender", "TIMEOUT", "DATA", seq,
+                                status="warn", retransmission=True,
+                                detail="ACK timeout; retransmission scheduled",
+                            )
                             if retries[seq] > 40:
                                 raise TimeoutError(f"Packet {seq} reached maximum retransmission attempts")
                             raw_packet = get_packet(seq)
@@ -184,13 +196,32 @@ class ReliableUDPSender:
         start_packet = make_packet(0, START, encode_metadata(metadata))
         deadline = time.time() + 5
         while time.time() < deadline:
-            sock.sendto(start_packet, receiver_addr)
+            try:
+                sock.sendto(start_packet, receiver_addr)
+                start = parse_packet(start_packet)
+                self.state.record_telemetry(
+                    "sender", "START_SENT", "START", start.seq, start.length,
+                    start.crc32, start.valid_crc,
+                    detail=f"Metadata sent to {receiver_addr[0]}:{receiver_addr[1]}",
+                )
+            except OSError as exc:
+                self.state.record_telemetry(
+                    "sender", "SEND_FAILED", "START", 0, len(start_packet) - HEADER_SIZE,
+                    status="error", detail=str(exc),
+                )
+                raise
             self.state.event("START", detail=f"Metadata sent for session {self.session_id} to {receiver_addr[0]}:{receiver_addr[1]}")
             ready, _, _ = select.select([sock], [], [], 0.3)
             if ready:
                 try:
                     raw, _ = sock.recvfrom(4096)
                     packet = parse_packet(raw)
+                    self.state.record_telemetry(
+                        "sender", "READY_RECEIVED", packet.type_name,
+                        packet.seq, packet.length, packet.crc32,
+                        packet.valid_crc, "success" if packet.valid_crc else "error",
+                        detail="Receiver handshake response",
+                    )
                     if packet.valid_crc and packet.type == READY:
                         self.state.set_receiver_status("Receiver Ready")
                         self.state.event("HANDSHAKE", detail=f"START / READY completed with {receiver_addr[0]}:{receiver_addr[1]}", status="success")
@@ -206,8 +237,29 @@ class ReliableUDPSender:
         if random.random() < (self.packet_loss / 100):
             self.state.increment(packets_lost=1)
             self.state.event("LOST", seq, "Simulated DATA drop before UDP send", "error")
+            self.state.record_telemetry(
+                "sender", "SIMULATED_LOSS", "DATA", seq,
+                len(raw_packet) - HEADER_SIZE, status="error",
+                retransmission=retransmit,
+                detail="Packet dropped before UDP send",
+            )
             return
-        sock.sendto(raw_packet, receiver_addr)
+        try:
+            sock.sendto(raw_packet, receiver_addr)
+        except OSError as exc:
+            self.state.record_telemetry(
+                "sender", "SEND_FAILED", "DATA", seq,
+                len(raw_packet) - HEADER_SIZE, status="error",
+                retransmission=retransmit, detail=str(exc),
+            )
+            raise
+        packet = parse_packet(raw_packet)
+        self.state.record_telemetry(
+            "sender", "DATA_SENT", "DATA", seq,
+            packet.length, packet.crc32, packet.valid_crc, "success",
+            retransmission=retransmit,
+            detail="Retransmitted DATA" if retransmit else "DATA sent",
+        )
         if retransmit:
             self.state.increment(retransmissions=1, packets_sent=1)
             self.state.event("RETRANSMIT", seq, "Timeout expired; packet resent", "warn")
@@ -219,13 +271,32 @@ class ReliableUDPSender:
         fin = make_packet(total_packets, FIN)
         deadline = time.time() + 5
         while time.time() < deadline:
-            sock.sendto(fin, receiver_addr)
+            try:
+                sock.sendto(fin, receiver_addr)
+                packet = parse_packet(fin)
+                self.state.record_telemetry(
+                    "sender", "FIN_SENT", "FIN", total_packets,
+                    packet.length, packet.crc32, packet.valid_crc,
+                    "success", detail="FIN sent",
+                )
+            except OSError as exc:
+                self.state.record_telemetry(
+                    "sender", "SEND_FAILED", "FIN", total_packets,
+                    0, status="error", detail=str(exc),
+                )
+                raise
             self.state.event("FIN", detail="All DATA ACKed; FIN sent")
             ready, _, _ = select.select([sock], [], [], 0.4)
             if ready:
                 try:
                     raw, _ = sock.recvfrom(4096)
                     packet = parse_packet(raw)
+                    self.state.record_telemetry(
+                        "sender", "FIN_ACK_RECEIVED", packet.type_name,
+                        packet.seq, packet.length, packet.crc32,
+                        packet.valid_crc, "success" if packet.valid_crc else "error",
+                        detail="Receiver completion response",
+                    )
                     if packet.valid_crc and packet.type == FIN_ACK:
                         receiver_hash = packet.payload.decode("ascii", errors="replace")
                         self.state.event("FIN_ACK", detail="Sender received FIN_ACK", status="success")

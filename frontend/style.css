@@ -233,6 +233,10 @@ html, body {
   grid-column: 1 / -1;
 }
 
+.integrity-panel {
+  grid-column: 1 / -1;
+}
+
 /* ==========================================================================
    PANEL ARCHITECTURE (SWISS EDITORIAL & LABORATORY)
    ========================================================================== */
@@ -906,13 +910,23 @@ select:focus {
 }
 
 /* Section 06: Event Stream */
+.events-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
 .events-scroll {
-  height: 250px;
+  flex: 1 1 0;
+  height: 0;
+  min-height: 0;
+  overflow-x: auto;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 4px;
   padding-right: 4px;
+  padding-bottom: 5px;
 }
 
 /* Custom Thin Technical Scrollbar */
@@ -932,7 +946,7 @@ select:focus {
 
 .event-row {
   display: grid;
-  grid-template-columns: 62px 92px 1fr;
+  grid-template-columns: 62px 180px 260px;
   align-items: center;
   gap: 8px;
   padding: 5px 8px;
@@ -940,7 +954,7 @@ select:focus {
   border-left: 3px solid var(--border-hairline);
   border-radius: var(--radius-sm);
   font-size: 11px;
-  min-width: 0;
+  min-width: 520px;
 }
 
 .event-row.info { border-left-color: var(--text-secondary); }
@@ -971,10 +985,7 @@ select:focus {
 .event-detail {
   color: var(--text-primary);
   font-size: 10.5px;
-  min-width: 0;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 /* Section 07: Packet Inspector */
@@ -988,6 +999,21 @@ select:focus {
   letter-spacing: 0.06em;
   color: var(--text-secondary);
   margin-bottom: 5px;
+}
+
+.telemetry-status {
+  min-height: 14px;
+  margin-bottom: 5px;
+  font-size: 8px;
+  color: var(--text-secondary);
+}
+
+.telemetry-status.available {
+  color: var(--color-success);
+}
+
+.telemetry-status.unavailable {
+  color: var(--color-warning);
 }
 
 .packet-scroll {

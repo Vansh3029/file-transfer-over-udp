@@ -14,6 +14,8 @@ class TransferState:
         self.current = self._empty()
         self.events = deque(maxlen=MAX_RECENT_EVENTS)
         self.packet_log = deque(maxlen=MAX_RECENT_EVENTS)
+        self.sender_telemetry = deque(maxlen=MAX_RECENT_EVENTS)
+        self.receiver_telemetry = deque(maxlen=MAX_RECENT_EVENTS)
         self.history = self._load_history()
         self.error = None
 
@@ -50,6 +52,7 @@ class TransferState:
             "receiver_port": 9000,
             "receiver_status": "Not Connected",
             "output_path": None,
+            "transfer_id": None,
         }
 
     def _load_history(self):
@@ -71,9 +74,11 @@ class TransferState:
             self.current = self._empty()
             self.events.clear()
             self.packet_log.clear()
+            self.sender_telemetry.clear()
+            self.receiver_telemetry.clear()
             self.error = None
 
-    def begin(self, filename, file_size, file_type, total_packets, window_size, timeout_ms, packet_loss, sender_hash, udp_port=9000, receiver_ip="127.0.0.1", receiver_port=9000):
+    def begin(self, filename, file_size, file_type, total_packets, window_size, timeout_ms, packet_loss, sender_hash, udp_port=9000, receiver_ip="127.0.0.1", receiver_port=9000, transfer_id=None):
         with self.lock:
             self.current = self._empty()
             self.current.update(
@@ -93,15 +98,25 @@ class TransferState:
                     "receiver_ip": receiver_ip,
                     "receiver_port": receiver_port,
                     "receiver_status": "Waiting for Receiver",
+                    "transfer_id": transfer_id,
                 }
             )
             self.events.clear()
             self.packet_log.clear()
+            self.sender_telemetry.clear()
+            self.receiver_telemetry.clear()
             self.error = None
 
     def set_receiver_status(self, status: str):
         with self.lock:
             self.current["receiver_status"] = status
+
+    def begin_receiver_telemetry(self, transfer_id):
+        with self.lock:
+            if transfer_id and transfer_id != self.current.get("transfer_id"):
+                self.receiver_telemetry.clear()
+                self.packet_log.clear()
+            self.current["transfer_id"] = transfer_id
 
     def update(self, **values):
         with self.lock:
@@ -140,6 +155,42 @@ class TransferState:
     def packet(self, packet):
         with self.lock:
             self.packet_log.appendleft(packet)
+
+    def record_telemetry(
+        self,
+        side,
+        event,
+        packet_type=None,
+        seq=None,
+        length=0,
+        crc32=None,
+        crc_valid=None,
+        status="info",
+        retransmission=False,
+        detail="",
+    ):
+        with self.lock:
+            record = {
+                "id": int(time.time() * 1_000_000),
+                "timestamp": time.time(),
+                "time": time.strftime("%H:%M:%S"),
+                "transfer_id": self.current.get("transfer_id"),
+                "direction": "sender" if side == "sender" else "receiver",
+                "event": event,
+                "type": packet_type,
+                "seq": seq,
+                "length": length,
+                "crc32": f"{crc32:08X}" if isinstance(crc32, int) else crc32,
+                "crc_valid": crc_valid,
+                "status": status,
+                "retransmission": bool(retransmission),
+                "detail": detail,
+            }
+            target = self.sender_telemetry if side == "sender" else self.receiver_telemetry
+            target.appendleft(record)
+            if packet_type:
+                self.packet_log.appendleft(record)
+            return record
 
     def finish(self, receiver_hash, output_path):
         with self.lock:
@@ -186,6 +237,17 @@ class TransferState:
                 "state": dict(self.current),
                 "events": list(self.events),
                 "packets": list(self.packet_log),
+                "sender_telemetry": list(self.sender_telemetry),
+                "receiver_telemetry": list(self.receiver_telemetry),
+            }
+
+    def telemetry_snapshot(self, transfer_id):
+        with self.lock:
+            if not transfer_id or transfer_id != self.current.get("transfer_id"):
+                return None
+            return {
+                "transfer_id": transfer_id,
+                "events": list(self.receiver_telemetry),
             }
 
     def history_snapshot(self):

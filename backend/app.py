@@ -1,6 +1,9 @@
 import ipaddress
 import json
 import threading
+import urllib.error
+import urllib.parse
+import urllib.request
 from dataclasses import dataclass
 from http import HTTPStatus
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
@@ -136,7 +139,15 @@ class AppHandler(SimpleHTTPRequestHandler):
     def do_GET(self):
         parsed = urlparse(self.path)
         if parsed.path == "/api/status":
-            return self.send_json(STATE.snapshot())
+            snapshot = STATE.snapshot()
+            self.attach_receiver_telemetry(snapshot)
+            return self.send_json(snapshot)
+        if parsed.path == "/api/telemetry":
+            transfer_id = (parse_qs(parsed.query).get("transfer_id") or [""])[0]
+            telemetry = STATE.telemetry_snapshot(transfer_id)
+            if telemetry is None:
+                return self.send_json({"ok": False, "error": "Invalid or inactive transfer ID"}, HTTPStatus.FORBIDDEN)
+            return self.send_json({"ok": True, **telemetry})
         if parsed.path == "/api/history":
             return self.send_json({"history": STATE.history_snapshot()})
         if parsed.path == "/api/packet":
@@ -146,6 +157,53 @@ class AppHandler(SimpleHTTPRequestHandler):
             packet = packets[index] if index < len(packets) else None
             return self.send_json({"packet": packet})
         return self.serve_static(parsed.path)
+
+    def attach_receiver_telemetry(self, snapshot):
+        state = snapshot["state"]
+        transfer_id = state.get("transfer_id")
+        snapshot["receiver_telemetry_available"] = False
+        snapshot["receiver_telemetry_error"] = None
+        if not transfer_id:
+            return
+
+        receiver_ip = state.get("receiver_ip")
+        receiver_port = state.get("receiver_port")
+        if receiver_ip in ("127.0.0.1", "localhost", "0.0.0.0") and receiver_port == RECEIVER_LISTEN_PORT:
+            snapshot["receiver_telemetry_available"] = True
+            return
+
+        query = urllib.parse.urlencode({"transfer_id": transfer_id})
+        url = f"http://{receiver_ip}:{HTTP_PORT}/api/telemetry?{query}"
+        try:
+            with urllib.request.urlopen(url, timeout=0.2) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+            if payload.get("ok") and payload.get("transfer_id") == transfer_id:
+                receiver_events = payload.get("events") or []
+                snapshot["receiver_telemetry"] = receiver_events
+                snapshot["packets"] = self.merge_telemetry(
+                    snapshot.get("sender_telemetry") or [],
+                    receiver_events,
+                )
+                snapshot["receiver_telemetry_available"] = True
+            else:
+                snapshot["receiver_telemetry_error"] = "Receiver returned no matching telemetry"
+        except (urllib.error.URLError, TimeoutError, OSError, ValueError) as exc:
+            snapshot["receiver_telemetry_error"] = str(exc)
+
+    @staticmethod
+    def merge_telemetry(sender_events, receiver_events):
+        merged = {}
+        for event in [*sender_events, *receiver_events]:
+            key = (
+                event.get("transfer_id"),
+                event.get("direction"),
+                event.get("event"),
+                event.get("seq"),
+                event.get("timestamp"),
+                event.get("retransmission"),
+            )
+            merged[key] = event
+        return sorted(merged.values(), key=lambda event: event.get("timestamp", 0), reverse=True)
 
     def do_POST(self):
         if self.path == "/api/transfer":
