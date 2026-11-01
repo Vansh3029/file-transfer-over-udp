@@ -1,0 +1,29 @@
+from pathlib import Path
+
+
+ROOT_DIR = Path(__file__).resolve().parent.parent
+FRONTEND_DIR = ROOT_DIR / "frontend"
+UPLOAD_DIR = ROOT_DIR / "uploads"
+RECEIVED_DIR = ROOT_DIR / "received_files"
+HISTORY_FILE = ROOT_DIR / "transfer_history.json"
+
+HTTP_HOST = "0.0.0.0"
+HTTP_PORT = 8000
+UDP_HOST = "127.0.0.1"
+UDP_PORT = 9000
+
+DEFAULT_RECEIVER_IP = "127.0.0.1"
+DEFAULT_RECEIVER_PORT = 9000
+RECEIVER_LISTEN_HOST = "0.0.0.0"
+RECEIVER_LISTEN_PORT = 9000
+
+PAYLOAD_SIZE = 1024
+MAX_UPLOAD_SIZE = 250 * 1024 * 1024
+MAX_RECENT_EVENTS = 220
+
+DEFAULT_WINDOW_SIZE = 8
+DEFAULT_TIMEOUT_MS = 250
+DEFAULT_PACKET_LOSS = 0
+
+for directory in (UPLOAD_DIR, RECEIVED_DIR):
+    directory.mkdir(parents=True, exist_ok=True)

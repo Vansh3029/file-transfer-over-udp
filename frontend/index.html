@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Reliable File Transfer over UDP</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <h1>Reliable File Transfer over UDP</h1>
+        <p>Data Communication Project</p>
+      </div>
+      <div class="status-pill">
+        <span class="pulse"></span>
+        <span>UDP</span>
+        <strong id="connectionState">Ready</strong>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="panel control-panel">
+        <div class="section-title">
+          <span>File</span>
+          <small>Binary safe upload</small>
+        </div>
+        <label class="drop-zone" for="fileInput">
+          <input id="fileInput" type="file" />
+          <span class="upload-icon">+</span>
+          <strong>Choose File</strong>
+          <small>TXT, PDF, JPG, MP4, ZIP, DOCX, EXE and more</small>
+        </label>
+        <div class="file-meta">
+          <div><span>Filename</span><strong id="fileName">No file selected</strong></div>
+          <div><span>File size</span><strong id="fileSize">-</strong></div>
+          <div><span>File type</span><strong id="fileType">-</strong></div>
+        </div>
+
+        <div class="section-title">
+          <span>Receiver Configuration</span>
+          <small>Destination IP & UDP port</small>
+        </div>
+        <div class="config-grid receiver-config-grid">
+          <label>Receiver IP Address
+            <input id="receiverIp" type="text" value="127.0.0.1" placeholder="127.0.0.1" />
+          </label>
+          <label>Receiver UDP Port
+            <input id="receiverPort" type="number" value="9000" min="1" max="65535" placeholder="9000" />
+          </label>
+        </div>
+        <div class="receiver-status-row">
+          <span>Receiver Connection:</span>
+          <span id="receiverStatusBadge" class="status-badge not-connected">Not Connected</span>
+        </div>
+
+        <div class="section-title">
+          <span>Transfer Configuration</span>
+          <small>Application-layer reliability</small>
+        </div>
+        <div class="config-grid">
+          <label>Packet Loss
+            <select id="packetLoss">
+              <option value="0">0%</option>
+              <option value="5">5%</option>
+              <option value="10" selected>10%</option>
+              <option value="20">20%</option>
+              <option value="30">30%</option>
+            </select>
+          </label>
+          <label>Sliding Window
+            <select id="windowSize">
+              <option>1</option>
+              <option>4</option>
+              <option selected>8</option>
+              <option>16</option>
+              <option>32</option>
+            </select>
+          </label>
+          <label>Timeout
+            <select id="timeoutMs">
+              <option value="50">50 ms</option>
+              <option value="100">100 ms</option>
+              <option value="250" selected>250 ms</option>
+              <option value="500">500 ms</option>
+            </select>
+          </label>
+        </div>
+        <button id="startBtn" class="primary-btn">START UDP TRANSFER</button>
+        <button id="resetBtn" class="ghost-btn">RESET DASHBOARD</button>
+        <p id="formMessage" class="message"></p>
+      </section>
+
+      <section class="panel hero-panel">
+        <div class="demo-strip">
+          <span>FILE</span><i></i><span>CHUNKING</span><i></i><span>UDP</span><i></i><span>ACK</span><i></i><span>RETRANSMISSION</span><i></i><span>REASSEMBLY</span><i></i><span>SHA-256</span><i></i><span>VERIFIED</span>
+        </div>
+        <div class="progress-wrap">
+          <div class="progress-text">
+            <span>Progress</span>
+            <strong id="progressText">0%</strong>
+          </div>
+          <div class="progress-track"><div id="progressBar"></div></div>
+        </div>
+        <div class="stats-grid">
+          <div><span>Packets</span><strong id="packetCount">0 / 0</strong></div>
+          <div><span>ACKs</span><strong id="ackCount">0</strong></div>
+          <div><span>Retransmissions</span><strong id="retransCount">0</strong></div>
+          <div><span>Simulated Drops</span><strong id="dropCount">0</strong></div>
+          <div><span>Window Size</span><strong id="windowStat">8</strong></div>
+          <div><span>Throughput</span><strong id="throughput">0 Mbps</strong></div>
+        </div>
+      </section>
+
+      <section class="panel flow-panel">
+        <div class="section-title">
+          <span>Packet Flow Visualization</span>
+          <small id="lossBadge">Loss simulation: 10%</small>
+        </div>
+        <div class="network">
+          <div class="node">SENDER</div>
+          <div class="wire">
+            <div id="packetMarker" class="packet-marker">DATA</div>
+          </div>
+          <div class="node network-node">UDP NETWORK</div>
+          <div class="wire ack-wire">
+            <div id="ackMarker" class="ack-marker">ACK</div>
+          </div>
+          <div class="node">RECEIVER</div>
+        </div>
+        <div id="eventList" class="event-list"></div>
+      </section>
+
+      <section class="panel inspector-panel">
+        <div class="section-title">
+          <span>Packet Inspector</span>
+          <small>Latest selectable packet</small>
+        </div>
+        <div id="packetList" class="packet-list"></div>
+        <div class="inspector" id="inspector">
+          <div><span>Sequence Number</span><strong>-</strong></div>
+          <div><span>Type</span><strong>-</strong></div>
+          <div><span>Payload Length</span><strong>-</strong></div>
+          <div><span>CRC32</span><strong>-</strong></div>
+          <div><span>CRC Status</span><strong>-</strong></div>
+        </div>
+      </section>
+
+      <section class="panel integrity-panel">
+        <div class="section-title">
+          <span>File Integrity</span>
+          <small>Real SHA-256 comparison</small>
+        </div>
+        <div class="hash-row"><span>Original SHA-256</span><code id="senderHash">-</code></div>
+        <div class="hash-row"><span>Received SHA-256</span><code id="receiverHash">-</code></div>
+        <div id="integrityState" class="verify pending">PENDING</div>
+      </section>
+
+      <section class="panel history-panel">
+        <div class="section-title">
+          <span>Transfer History</span>
+          <small>Stored in JSON</small>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Filename</th>
+                <th>Receiver</th>
+                <th>Size</th>
+                <th>Duration</th>
+                <th>Throughput</th>
+                <th>Packets</th>
+                <th>Retransmissions</th>
+                <th>Loss</th>
+                <th>Integrity</th>
+                <th>Timestamp</th>
+              </tr>
+            </thead>
+            <tbody id="historyBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+    <script src="/app.js"></script>
+  </body>
+</html>
