@@ -129,16 +129,22 @@ Open:
 http://127.0.0.1:8000
 ```
 
-## LAN File Transfer Setup
+## LAN or Mobile Hotspot File Transfer Setup
 
-To transfer files between two machines on the same Local Area Network (LAN):
+To transfer files between two machines on the same Wi-Fi network or mobile
+hotspot:
 
 ### 1. Receiver Machine (e.g. `192.168.1.20`)
-1. Open Windows PowerShell as Administrator and allow inbound traffic on UDP port 9000:
+1. Find the receiver's address on the network it is currently using. On Windows,
+   run `ipconfig` and use the IPv4 address shown for the active Wi-Fi or
+   hotspot adapter. Do not use `127.0.0.1`; that address means "this same
+   computer".
+2. On Windows PowerShell as Administrator, allow inbound traffic on UDP port
+   9000 for all network profiles, including mobile hotspots:
    ```powershell
-   New-NetFirewallRule -DisplayName "UDP File Transfer Receiver" -Direction Inbound -Protocol UDP -LocalPort 9000 -Action Allow
+   New-NetFirewallRule -DisplayName "UDP File Transfer Receiver (Port 9000)" -Direction Inbound -Protocol UDP -LocalPort 9000 -Action Allow -Profile Any
    ```
-2. Start the receiver:
+3. Start the receiver:
    - **Option A (Web Dashboard + Receiver):** Run `run.bat` or `python backend\app.py`.
    - **Option B (Standalone Receiver):** Run `python backend\udp_receiver.py --host 0.0.0.0 --port 9000`.
 
@@ -151,6 +157,20 @@ To transfer files between two machines on the same Local Area Network (LAN):
 4. The dashboard will transition:
    `Not Connected` -> `Waiting for Receiver` -> `Receiver Ready` -> `Transfer in Progress` -> `Transfer Completed`.
 5. The received file is saved in `received_files/` on the Receiver machine and verified via SHA-256.
+
+### Hotspot troubleshooting
+
+- The Windows laptop must be the **receiver** when sending from the Mac, and
+  its Windows Firewall must allow inbound UDP 9000. Hotspot connections are
+  commonly classified as `Public`, even when ordinary Wi-Fi is classified as
+  `Private`.
+- Confirm both machines are connected to the same hotspot and use the
+  receiver's current hotspot IPv4 address. Hotspot addresses can change after
+  reconnecting.
+- If the receiver still times out, temporarily test with the Windows Firewall
+  disabled only to confirm the cause, then re-enable it and add the rule above.
+- The receiver binds to `0.0.0.0:9000`, so no code or configuration change is
+  needed to make it listen on the hotspot interface.
 
 ## Demo Scenario
 

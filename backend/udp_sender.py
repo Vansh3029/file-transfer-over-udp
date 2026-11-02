@@ -231,7 +231,11 @@ class ReliableUDPSender:
                 except Exception:
                     continue
         self.state.set_receiver_status("Connection Failed")
-        raise TimeoutError(f"Handshake timed out. Receiver at {receiver_addr[0]}:{receiver_addr[1]} is not responding.")
+        raise TimeoutError(
+            f"Handshake timed out. Receiver at {receiver_addr[0]}:{receiver_addr[1]} "
+            "did not respond. Verify that the receiver is running, the address is "
+            "correct, and inbound UDP traffic is allowed on the receiver firewall."
+        )
 
     def _send_data(self, sock, receiver_addr, seq, raw_packet, retransmit):
         if random.random() < (self.packet_loss / 100):
